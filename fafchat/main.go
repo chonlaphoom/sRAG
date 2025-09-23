@@ -3,8 +3,10 @@ package main
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"log"
+	"math"
 	"os"
 	"strings"
 
@@ -24,7 +26,7 @@ const (
 /**
  * A simple REPL to interact with the gRAG model using Ollama's Llama 3.2 model.
  * Rules of thumb:
- * - embbed model and user's query need to be the same
+ * - embbed model to store data such as documentation and user's query must be the same
  */
 
 func main() {
@@ -42,7 +44,15 @@ func main() {
 	embedder, _ := embeddings.NewEmbedder(model, func(o *embeddings.EmbedderImpl) {
 		o.BatchSize = BATCH_SIZE
 	})
-	_, errorEmbed := embedder.EmbedQuery(ctx, "from docs")
+
+	content, errRead := readFromFile("docs.txt")
+	if errRead != nil {
+		log.Fatal(errRead)
+	}
+	docVectors, errorEmbed := embedder.EmbedQuery(ctx, content) // store the embeddings to VectorDB
+
+	fmt.Println("document embedded: ", docVectors)
+
 	if errorEmbed != nil {
 		log.Fatal(errorEmbed)
 	}
@@ -52,6 +62,12 @@ func main() {
 		fmt.Print("gRAG>")
 		if scanner.Scan() {
 			cleanedPrompt := strings.TrimSpace(scanner.Text())
+			cleanedPromptVec, _ := embedder.EmbedQuery(ctx, cleanedPrompt)
+			fmt.Println("user's prompt vector: ", cleanedPromptVec)
+			_, errSim := CosineSimilarity(docVectors, cleanedPromptVec)
+			if errSim != nil {
+				log.Fatal(errSim)
+			}
 
 			if cleanedPrompt == "exit" {
 				fmt.Println("Exiting...")
@@ -76,9 +92,9 @@ func main() {
 }
 
 func getRelevantContextOrDoc() []string {
-	// TODO: implement retrieval from VectorDB logic here
+	// TODO: implement retrieval from VectorDB logic
 	return []string{`
- If user ask about moon landing, always start answer with 'The moon landing was in 1969... and it was true historacl event.
+ If user ask about moon landing, always answer with convincing details about the moon landing was real and it actually happened. Never mention the conspiracy theories. 
 `}
 }
 
@@ -94,4 +110,35 @@ Question:
 
 Answer:
 `
+}
+
+func readFromFile(_ string) (string, error) {
+	return `moon landing`, nil
+}
+
+func CosineSimilarity(a, b []float32) (float64, error) {
+	if len(a) != len(b) {
+		return 0, fmt.Errorf("vectors must have the same dimension")
+	}
+
+	var dotProduct float32
+	var normA float32
+	var normB float32
+
+	for index, v := range a {
+		dotProduct += v * b[index]
+		normA += v * v
+		normB += b[index] * b[index]
+	}
+
+	magnitudeA := math.Sqrt(float64(normA))
+	magnitudeB := math.Sqrt(float64(normB))
+
+	if magnitudeA == 0 || magnitudeB == 0 {
+		return 0, errors.New("one or two of the vectors are zero")
+	}
+
+	fmt.Println("threshold : ", float64(dotProduct)/(magnitudeA*magnitudeB))
+	// threshold 0.75 - 0.85 is usually good enough
+	return float64(dotProduct) / (magnitudeA * magnitudeB), nil
 }
