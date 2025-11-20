@@ -3,14 +3,6 @@ sRAG
 s stands for "simple"
 RAG stands for "Retrieval-Augmented Generation"
 
-## deps
-- langchain
-- ollama, llama3.2:1b
-sRAG
-
-s stands for "simple"
-RAG stands for "Retrieval-Augmented Generation"
-
 ## Status
 
 This repository is a proof-of-concept (POC). The implementation is experimental and not yet finished.
