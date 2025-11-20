@@ -17,7 +17,7 @@ import (
 
 const (
 	MODEL       = "llama3.2:1b"
-	TEMPERATURE = 0.7
+	TEMPERATURE = 0.9
 	SERVER_URL  = "http://localhost:11555"
 
 	BATCH_SIZE = 256 // for embedding
