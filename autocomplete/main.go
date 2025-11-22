@@ -11,7 +11,7 @@ import (
 	"github.com/sourcegraph/jsonrpc2"
 )
 
-const BUFFER_SIZE = 1 << 5
+const BUFFER_SIZE = 1 << 10 // 1KB
 
 func init() {
 	sigs := make(chan os.Signal, 1)
@@ -44,7 +44,8 @@ func main() {
 		Error: nil,
 	}
 
-	res.SetResult(`
+	var err error
+	err = res.SetResult(`
 			{
 				"jsonrpc": "2.0",
 				"id": 123,
@@ -56,7 +57,15 @@ func main() {
 				]
 			}
 	`)
+	if err != nil {
+		fmt.Println("Error setting result:", err)
+		panic(err)
+	}
 
 	result, _ := json.Marshal(res)
-	fmt.Printf("%v", string(result))
+	_, err = os.Stdout.Write(result)
+	if err != nil {
+		fmt.Println("Error writing to stdout:", err)
+		panic(err)
+	}
 }
