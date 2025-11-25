@@ -1,17 +1,24 @@
 package main
 
 import (
-	"encoding/json"
+	"context"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"os/signal"
 	"syscall"
 
-	"github.com/sourcegraph/jsonrpc2"
+	"github.com/tmc/langchaingo/llms"
+	"github.com/tmc/langchaingo/llms/ollama"
 )
 
 const BUFFER_SIZE = 1 << 10 // 1KB
+const (
+	MODEL       = "llama3.2:1b"
+	TEMPERATURE = 0.9
+	SERVER_URL  = "http://localhost:11555"
+)
 
 func init() {
 	sigs := make(chan os.Signal, 1)
@@ -23,8 +30,24 @@ func init() {
 	}()
 }
 
+func newModel() (model *ollama.LLM) {
+	fmt.Println("initializing model...")
+
+	llm, err := ollama.New(
+		ollama.WithServerURL(SERVER_URL),
+		ollama.WithModel(MODEL),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println("model initialized.")
+	return llm
+}
+
 func main() {
 	buffer := make([]byte, BUFFER_SIZE)
+	llm := newModel()
+	ctx := context.Background()
 	for {
 		n, err := os.Stdin.Read(buffer)
 		if err != nil {
@@ -35,37 +58,16 @@ func main() {
 			panic(err)
 		}
 
-		fmt.Println(string(buffer[:n]))
-	}
+		bufferStr := string(buffer[:n])
+		fmt.Println(bufferStr)
 
-	// http://www.jsonrpc.org/specification#response_object.
-	res := jsonrpc2.Response{
-		ID:    jsonrpc2.ID{Num: 1}, // should match the request ID
-		Error: nil,
-	}
-
-	var err error
-	err = res.SetResult(`
-			{
-				"jsonrpc": "2.0",
-				"id": 123,
-				"result": [
-					{
-						"label": "fmt.Println",
-						"kind": 2 // Function
-					},
-				]
-			}
-	`)
-	if err != nil {
-		fmt.Println("Error setting result:", err)
-		panic(err)
-	}
-
-	result, _ := json.Marshal(res)
-	_, err = os.Stdout.Write(result)
-	if err != nil {
-		fmt.Println("Error writing to stdout:", err)
-		panic(err)
+		augmentedPrompt := fmt.Sprintf("some augmented %s", bufferStr)
+		llms.WithTemperature(TEMPERATURE)
+		msg, er := llms.GenerateFromSinglePrompt(ctx, llm, augmentedPrompt))
+		if er != nil {
+			fmt.Println("Error generating response:", er)
+			log.Fatal(er)
+		}
+		os.Stdout.Write([]byte(msg))
 	}
 }
