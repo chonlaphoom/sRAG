@@ -63,7 +63,7 @@ func main() {
 
 		augmentedPrompt := fmt.Sprintf("some augmented %s", bufferStr)
 		llms.WithTemperature(TEMPERATURE)
-		msg, er := llms.GenerateFromSinglePrompt(ctx, llm, augmentedPrompt))
+		msg, er := llms.GenerateFromSinglePrompt(ctx, llm, augmentedPrompt)
 		if er != nil {
 			fmt.Println("Error generating response:", er)
 			log.Fatal(er)
